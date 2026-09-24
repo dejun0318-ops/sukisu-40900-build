@@ -2,6 +2,8 @@
 set -Eeuo pipefail
 
 readonly GKI_BRANCH=common-android14-6.1-2025-06
+readonly GKI_TAG=android14-6.1-2025-06_r11
+readonly GKI_COMMIT=6ab8c9a86a331cece499c7edac062ceffbe2e320
 readonly KSU_COMMIT=b20dee702035af09cb2ecb5f35443bbc1747f3e6
 readonly SUSFS_COMMIT=596ec8fcdcb5a6ee366494304333c7fdc76d8862
 readonly ANYKERNEL_COMMIT=e1e9dce98430c5c6f231f7094a8c7f4ecaf50948
@@ -19,10 +21,26 @@ curl -fsSL --retry 5 https://storage.googleapis.com/git-repo-downloads/repo -o "
 chmod +x "$REPO_TOOL"
 cd "$KERNEL_ROOT"
 "$REPO_TOOL" init --depth=1 -u https://android.googlesource.com/kernel/manifest -b "$GKI_BRANCH"
+manifest=.repo/manifests/default.xml
+test -f "$manifest"
+# 月度分支已删除；r11 的提交哈希与设备 uname 的 g6ab8c9a86a33 对应。
+python3 - "$manifest" "$GKI_TAG" <<'PY'
+from pathlib import Path
+import sys
+
+path, tag = Path(sys.argv[1]), sys.argv[2]
+source = path.read_text()
+old = 'revision="android14-6.1-2025-06" upstream="android14-6.1-2025-06" dest-branch="android14-6.1-2025-06"'
+new = f'revision="refs/tags/{tag}" upstream="refs/tags/{tag}" dest-branch="android14-6.1-2025-06"'
+if source.count(old) != 1:
+    raise SystemExit('Expected GKI manifest project was not found exactly once')
+path.write_text(source.replace(old, new))
+PY
 "$REPO_TOOL" sync -c -j4 --no-tags --no-clone-bundle --retry-fetches=3
 
 # 必须使用用户指定的 6.1.138 月度分支，避免分支变动生成误标文件。
 test -f common/Makefile
+test "$(git -C common rev-parse HEAD)" = "$GKI_COMMIT"
 grep -Eq '^VERSION = 6$' common/Makefile
 grep -Eq '^PATCHLEVEL = 1$' common/Makefile
 grep -Eq '^SUBLEVEL = 138$' common/Makefile
@@ -90,6 +108,7 @@ rm -rf "$ANYKERNEL_ROOT/.git"
 
 cat > "$PROJECT_ROOT/artifacts/BUILD_INFO.txt" <<EOF
 GKI branch: $GKI_BRANCH
+GKI release tag: $GKI_TAG
 GKI commit: $(git -C "$KERNEL_ROOT/common" rev-parse HEAD)
 SukiSU builtin commit: $KSU_COMMIT
 SukiSU kernel version: 40900
