@@ -1,0 +1,75 @@
+name: Build SukiSU 40900 for android14-6.1.138
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - name: Free runner disk space
+        uses: AdityaGarg8/remove-unwanted-software@v5
+        with:
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          remove-docker-images: 'true'
+          remove-large-packages: 'true'
+          remove-swapfile: 'true'
+          remove-cached-tools: 'true'
+
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git curl python3 zip unzip patch ccache
+
+      - name: Build kernel and AnyKernel3 package
+        run: bash scripts/build.sh
+
+      - name: Download pinned manager and SUSFS module
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 -o artifacts/SukiSU_v4.2.0_40900-release.apk \
+            https://github.com/SukiSU-Ultra/SukiSU-Ultra/releases/download/v4.2.0/SukiSU_v4.2.0_40900-release.apk
+          curl -fL --retry 5 -o artifacts/ksu_module_susfs.zip \
+            https://github.com/zzh20188/GKI_KernelSU_SUSFS/releases/download/v2.3.0-r4/ksu_module_susfs.zip
+          echo '4ca9810e6355fbff0bbe4bf5ce159808e64a40d85987a11894030cd990a6bdf3  artifacts/SukiSU_v4.2.0_40900-release.apk' | sha256sum -c -
+          echo '38bc6ee365e79e9756889ced2d32e79e7a3891e746f6ce1fd0983b95aa30e61e  artifacts/ksu_module_susfs.zip' | sha256sum -c -
+          unzip -t artifacts/ksu_module_susfs.zip >/dev/null
+          unzip -p artifacts/ksu_module_susfs.zip module.prop | tr -d '\r' | grep -q '^id=susfs4ksu$'
+
+      - name: Verify and checksum artifacts
+        run: |
+          set -euo pipefail
+          unzip -t artifacts/android14-6.1.138-2025-06-AnyKernel3.zip >/dev/null
+          unzip -l artifacts/android14-6.1.138-2025-06-AnyKernel3.zip | grep -q ' Image$'
+          (cd artifacts && sha256sum android14-6.1.138-2025-06-AnyKernel3.zip SukiSU_v4.2.0_40900-release.apk ksu_module_susfs.zip > SHA256SUMS.txt)
+          cat artifacts/SHA256SUMS.txt
+
+      - name: Upload Actions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android14-6.1.138-2025-06-SukiSU-40900
+          path: artifacts/*
+          if-no-files-found: error
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=android14-6.1.138-2025-06-sukisu-40900
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" artifacts/* --clobber
+          else
+            gh release create "$tag" artifacts/* \
+              --title 'android14-6.1.138-2025-06 · SukiSU 40900 + SUSFS' \
+              --notes-file RELEASE_NOTES.md
+          fi
