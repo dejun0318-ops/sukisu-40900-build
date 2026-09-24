@@ -32,7 +32,8 @@ git clone --depth 1 --branch builtin https://github.com/SukiSU-Ultra/SukiSU-Ultr
 git -C KernelSU fetch --depth 1 origin "$KSU_COMMIT"
 git -C KernelSU checkout --detach "$KSU_COMMIT"
 test "$(git -C KernelSU rev-parse HEAD)" = "$KSU_COMMIT"
-ln -s ../../../KernelSU/kernel common/drivers/kernelsu
+ln -s ../../KernelSU/kernel common/drivers/kernelsu
+test -f common/drivers/kernelsu/Makefile
 printf '\nobj-$(CONFIG_KSU) += kernelsu/\n' >> common/drivers/Makefile
 sed -i '/^endmenu$/i source "drivers/kernelsu/Kconfig"' common/drivers/Kconfig
 
@@ -76,7 +77,7 @@ tools/bazel build --disk_cache="$WORK_ROOT/bazel-cache" --config=fast --lto=thin
 
 readonly IMAGE="$KERNEL_ROOT/bazel-bin/common/kernel_aarch64/Image"
 test -s "$IMAGE"
-strings "$IMAGE" | grep -m1 'Linux version 6.1.138'
+strings "$IMAGE" | grep -m1 'Linux version 6.1.138-android14-11'
 
 echo '=== Package AnyKernel3 ==='
 git clone --depth 1 --branch gki-2.0 https://github.com/WildPlusKernel/AnyKernel3.git "$ANYKERNEL_ROOT"
