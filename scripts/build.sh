@@ -64,7 +64,8 @@ echo '=== Apply pinned SUSFS v2.3.0 patches ==='
 git clone --branch gki-android14-6.1 https://github.com/ShirkNeko/susfs4ksu.git "$SUSFS_ROOT"
 git -C "$SUSFS_ROOT" checkout --detach "$SUSFS_COMMIT"
 test "$(git -C "$SUSFS_ROOT" rev-parse HEAD)" = "$SUSFS_COMMIT"
-KERNEL_ROOT="$KERNEL_ROOT" SUSFS_ROOT="$SUSFS_ROOT" bash "$PROJECT_ROOT/scripts/apply-susfs.sh"
+export KERNEL_ROOT SUSFS_ROOT
+bash "$PROJECT_ROOT/scripts/apply-susfs.sh"
 
 echo '=== Configure and compile GKI ==='
 cat > common/arch/arm64/configs/ksu.fragment <<'EOF'
