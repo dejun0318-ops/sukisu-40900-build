@@ -4,6 +4,7 @@ set -Eeuo pipefail
 readonly GKI_BRANCH=common-android14-6.1-2025-06
 readonly GKI_TAG=android14-6.1-2025-06_r11
 readonly GKI_COMMIT=6ab8c9a86a331cece499c7edac062ceffbe2e320
+readonly DEVICE_KERNEL_RELEASE=6.1.138-android14-11-g6ab8c9a86a33-ab14396278
 readonly KSU_COMMIT=b20dee702035af09cb2ecb5f35443bbc1747f3e6
 readonly SUSFS_COMMIT=596ec8fcdcb5a6ee366494304333c7fdc76d8862
 readonly ANYKERNEL_COMMIT=e1e9dce98430c5c6f231f7094a8c7f4ecaf50948
@@ -90,13 +91,29 @@ if test -f build/kernel/kleaf/impl/stamp.bzl; then
   sed -i 's/-maybe-dirty//g' build/kernel/kleaf/impl/stamp.bzl
 fi
 
+# 与设备原厂内核的 uname -r 保持一致，供依赖版本字符串的 vendor 模块使用。
+python3 - common/scripts/setlocalversion "$DEVICE_KERNEL_RELEASE" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+release = sys.argv[2]
+suffix = release.removeprefix('6.1.138-android14-11')
+source = path.read_text()
+old = '\necho "$res"\n'
+new = f'\necho "${{res}}{suffix}"\n'
+if source.count(old) != 1:
+    raise SystemExit('Unexpected setlocalversion ending')
+path.write_text(source.replace(old, new))
+PY
+
 tools/bazel build --disk_cache="$WORK_ROOT/bazel-cache" --config=fast --lto=thin \
   --defconfig_fragment=//common:arch/arm64/configs/ksu.fragment \
   //common:kernel_aarch64_dist
 
 readonly IMAGE="$KERNEL_ROOT/bazel-bin/common/kernel_aarch64/Image"
 test -s "$IMAGE"
-strings "$IMAGE" | grep -m1 'Linux version 6.1.138-android14-11'
+strings "$IMAGE" | grep -Fm1 "Linux version $DEVICE_KERNEL_RELEASE "
 
 echo '=== Package AnyKernel3 ==='
 git clone --depth 1 --branch gki-2.0 https://github.com/WildPlusKernel/AnyKernel3.git "$ANYKERNEL_ROOT"
@@ -114,6 +131,7 @@ GKI commit: $(git -C "$KERNEL_ROOT/common" rev-parse HEAD)
 SukiSU builtin commit: $KSU_COMMIT
 SukiSU kernel version: 40900
 SukiSU manager: v4.2.0 / 40900
+Kernel release: $DEVICE_KERNEL_RELEASE
 SUSFS commit: $SUSFS_COMMIT (v2.3.0)
 AnyKernel3 commit: $ANYKERNEL_COMMIT
 Build run: ${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-dejun0318-ops/sukisu-40900-build}/actions/runs/${GITHUB_RUN_ID:-local}

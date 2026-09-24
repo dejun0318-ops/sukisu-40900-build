@@ -1,6 +1,6 @@
 # android14-6.1.138-2025-06 · SukiSU-Ultra 40900 + SUSFS
 
-This repository builds one GKI kernel in GitHub Actions for a device reporting `6.1.138-android14-11-g6ab8c9a86a33-ab14396278`.
+This repository builds one GKI kernel in GitHub Actions for a device reporting `6.1.138-android14-11-g6ab8c9a86a33-ab14396278`. The workflow checks that exact version string in the compiled `Image`.
 
 Run **Build SukiSU 40900 for android14-6.1.138** from the Actions tab. The workflow builds `android14-6.1.138-2025-06-AnyKernel3.zip` and publishes it with the official [SukiSU-Ultra v4.2.0 manager (40900)](https://github.com/SukiSU-Ultra/SukiSU-Ultra/releases/tag/v4.2.0) and the matching [SUSFS module](https://github.com/zzh20188/GKI_KernelSU_SUSFS/releases/tag/v2.3.0-r4). The release also includes source revisions and SHA-256 checksums.
 
